@@ -1,0 +1,16 @@
+[project]
+name = "metascript"
+version = "0.0.1"
+description = "Meta Script — agent-first teaching language"
+readme = "META_SCRIPT_SPEC.txt"
+requires-python = ">=3.11"
+dependencies = [
+  "lark-parser>=1.1.5"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

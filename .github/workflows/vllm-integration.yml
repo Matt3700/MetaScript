@@ -1,0 +1,81 @@
+name: model-backend matrix integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  integration-matrix:
+    name: Integration — ${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        backend: [ vllm, transformersjs, simulated ]
+    permissions:
+      contents: read
+    env:
+      RUN_VLLM_INTEGRATION: '1'
+      VLLM_API_URL: 'http://127.0.0.1:8080'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install common dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests
+          pip install -e .
+
+      - name: Setup Node (transformersjs)
+        if: matrix.backend == 'transformersjs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install vllm (vllm backend only)
+        if: matrix.backend == 'vllm'
+        run: |
+          python -m pip install vllm
+
+      - name: Start local model (vllm)
+        if: matrix.backend == 'vllm'
+        run: |
+          nohup vllm serve openai-community/gpt2 --model-imp transformers --host 127.0.0.1 --port 8080 &
+          sleep 5
+
+      - name: Start transformers.js bridge (transformersjs)
+        if: matrix.backend == 'transformersjs'
+        run: |
+          # Node is available; the bridge script is in tools/ and invoked directly by the adapter
+          node --version
+
+      - name: Wait for vllm to be ready (vllm)
+        if: matrix.backend == 'vllm'
+        run: |
+          for i in {1..60}; do
+            if curl -sS --fail http://127.0.0.1:8080/health >/dev/null 2>&1 || curl -sS --fail -X POST http://127.0.0.1:8080/v1/generate -d '{"input":"ping"}' -H 'Content-Type: application/json' >/dev/null 2>&1; then
+              echo "vllm ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "vllm did not start in time"
+          exit 1
+
+      - name: Run integration tests for backend
+        env:
+          RUN_VLLM_INTEGRATION: ${{ matrix.backend == 'vllm' && '1' || '0' }}
+          VLLM_API_URL: 'http://127.0.0.1:8080'
+        run: |
+          python -m pytest tests/test_integration_vllm.py -q || true
+
+      - name: Run full test suite
+        run: |
+          python -m pytest -q

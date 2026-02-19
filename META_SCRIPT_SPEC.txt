@@ -1,0 +1,441 @@
+META SCRIPT — Language specification and project plan
+
+Name: Meta Script
+Extension: .ms
+Design goal: A meta-agent–first, child-friendly, universal scripting 
+  language with readable syntax (Python-style) and an alternate COBOL-style 
+  surface. Built-in meta agents on the front end (user intent & UX) and back
+  end (execution planner & safety). Includes a Python-based CLI to run, 
+  REPL, and manage .ms programs.
+
+---
+
+Quickstart (child-friendly)
+- Write: type ideas using easy English words and small symbols.
+- Save: name the file with .ms (for example: hello.ms).
+- Run: use the Meta Script CLI (python-based) to play your program.
+
+Hello World (Python-style, simple for kids)
+
+say "Hello, Meta Script!"
+
+Hello World (COBOL-style, easy English blocks)
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. HELLO-MS.
+PROCEDURE DIVISION.
+    DISPLAY "Hello, Meta Script!".
+    STOP RUN.
+
+---
+
+Philosophy (short)
+- Readable: close to English so children and beginners immediately understand.
+- Agent-first guarantee: Meta Script is explicitly *agent-first* — the Front-end meta agent mediates user intent, editing help and kid-friendly explanations, while the Back-end meta agent plans execution, enforces permissions and ensures safety. The CLI/REPL/LSP call the frontend agent by default to confirm intent and produce readable explanations before running; the backend agent always validates, sandboxes and approves execution.
+- Meta-agent-first tooling: language tooling is designed around front-end and back-end meta agents for intent/UX, execution planning, optimization, and safety.
+- Universal: cross-platform, small runtime, plug-in friendly.
+- Safe-by-default: sandboxing and explicit permissions for file/network/exec; the backend agent enforces policy and resource limits.
+- Opt-out for experts: advanced users may bypass agents with explicit flags (e.g. `--no-agent` or `--unsafe`), but bypass requires explicit consent and is strongly discouraged.
+
+Core concepts (kid-level)
+- "say": prints words to the screen.
+- "let": remembers a value (variable).
+- "do": run a set of steps.
+- Meta agent: a smart helper that understands what you mean and helps write or run your script.
+
+File extension: .ms — every Meta Script program ends with .ms
+
+---
+
+Key features (best of many languages)
+- Python: readable indentation, list comprehensions, first-class functions
+- JavaScript/Node: async/await pattern for easy asynchronous code
+- Rust: Result-like error handling and optional safety hints
+- SQL: simple query-like collections and filters
+- Shell: piping and simple file operations
+- COBOL: an alternative verbose syntax for readability in business contexts
+- Small DSLs/macros: lightweight macros for common patterns
+- Type hints (optional): TypeScript-like inline hints for tooling
+- Built-in meta-agents: natural-language assistance and runtime planning
+
+---
+
+Two syntaxes: Python-style and COBOL-style (same semantics)
+- Python-style: indentation, short keywords, great for teaching and scripting.
+- COBOL-style: verbose block keywords, great for step-by-step business-readable scripts.
+
+Example: compute-average (Python-style)
+
+say "Give me three numbers"
+let a = 3
+let b = 4
+let c = 5
+let avg = (a + b + c) / 3
+say "Average is " + avg
+
+Same program (COBOL-style)
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. AVG-MS.
+PROCEDURE DIVISION.
+    DISPLAY "Give me three numbers".
+    COMPUTE A = 3.
+    COMPUTE B = 4.
+    COMPUTE C = 5.
+    COMPUTE AVG = (A + B + C) / 3.
+    DISPLAY "Average is " AVG.
+    STOP RUN.
+
+---
+
+Meta agents: front end and back end (roles & messages)
+
+Front-end Meta Agent (user-facing)
+- Role: understand intent, offer code completions, convert plain English to 
+  Meta Script snippets, provide kid-friendly explanations and tutorials.
+- Example tasks: "turn this sentence into a loop", "make this print nicer",
+   grammar-checking.
+- Communicates with IDE/CLI UI and the back-end agent.
+
+Back-end Meta Agent (execution & planning)
+- Role: plan execution, sandbox, optimize, provide safety checks, 
+  offer alternative implementations.
+- Example tasks: resource limits, permission checks, concurrency scheduling,
+   result summarization.
+
+Agent message example (JSON over STDIO / HTTP)
+[
+  "type": "intent-draft",
+  "from": "frontend",
+  "payload": [
+    "natural_text": "make a program that says hello 5 times",
+    "target_syntax": "python-style"
+  ]
+]
+
+Note: this specification *always* shows both forms for clarity —
+- square-bracket display notation (brief, human-friendly), and
+- curly-brace executable notation (valid JSON/Python for implementations).
+
+Executable JSON equivalent (valid form):
+{
+  "type": "intent-draft",
+  "from": "frontend",
+  "payload": {
+    "natural_text": "make a program that says hello 5 times",
+    "target_syntax": "python-style"
+  }
+}
+
+Response (from backend agent)
+[
+  "type": "ms-snippet",
+  "from": "backend",
+  "payload": [
+    "language": "meta-script",
+    "syntax": "python-style",
+    "code": "for i in range(5):\n    say \"Hello\"\n"
+  ]
+]
+
+Executable JSON equivalent (use curly braces):
+{
+  "type": "ms-snippet",
+  "from": "backend",
+  "payload": {
+    "language": "meta-script",
+    "syntax": "python-style",
+    "code": "for i in range(5):\n    say \"Hello\"\n"
+  }
+}
+
+Built-in agent tools
+- Meta Script agents expose a set of safe, sandbox-aware tools the agents can call to perform common tasks (file ops, simulated HTTP, simple eval/formatting, static planning, etc.). These tools are available to both the `frontend` and `backend` agents via a `call_tool` message or the developer API `agent.call("frontend", {"type":"call_tool", "payload": {"tool": "name", "params": {...}}})`.
+
+Common tools (examples)
+- `read_file`     — read a workspace file (safe, workspace-limited)
+- `write_file`    — write a workspace file (safe, workspace-limited)
+- `list_dir`      — list files in a directory
+- `compute_stats` — lines/words/chars for a text blob
+- `safe_eval`     — evaluate arithmetic expressions only
+- `http_get`      — simulated HTTP GET (example.com is allowed for demos)
+- `format_code`   — simple Python formatter
+- `simulate_run`  — simulate MS execution without running host code
+- `get_plan`      — return a resource usage plan for a code snippet
+
+Tool message example (display form)
+agent frontend [ "type": "call_tool", "payload": { "tool": "compute_stats", "params": { "text": "line1\nline2" } } ]
+
+Executable message example (JSON)
+{
+  "type": "call_tool",
+  "from": "frontend",
+  "payload": { "tool": "compute_stats", "params": { "text": "line1\nline2" } }
+}
+
+Auto-detection & local model wiring 🔎
+- The CLI provides `metascript probe` which scans common localhost ports and endpoints for vllm-style servers. If a server is found it prints the detected API URL and (optionally) persists it to `metascript_config.json`.
+- The frontend `ExternalModelAdapter` prefers `VLLM_API_URL` (env) and will also read `metascript_config.json` for persisted configuration.
+- Recommended default local model command: `vllm serve openai-community/gpt2 --model-imp transformers` (this is the default model the system will try to detect and prefer).
+
+Autotune & autonomy
+- `metascript autotune` runs a quick benchmark across available adapters and automatically selects the best model for this machine; use `--save` to persist the choice. The system will prefer local/low-latency adapters (transformers.js, vLLM) and select models that have tool-use capability and low latency.
+- The system is autonomous by default (can be changed via `metascript config set autonomy_enabled false`). Autonomy allows the frontend agent to call tools and act without additional user prompts; backend validation and sandboxing remain enabled by default.
+- CI matrix: repository includes a CI matrix that tests the system against multiple backends (vLLM, transformers.js bridge, and simulated adapters).
+- To probe manually: `python -m metascript.cli probe --save` — this will persist the detected URL so subsequent runs automatically use your local model.
+
+Security & sandboxing
+- Back-end agent enforces a permissions model: read/write/network/exec
+- Default: deny all host access; requests require explicit consent
+- Execution runs in a limited subprocess / container (recommended)
+
+---
+
+Language model & grammar (high level)
+- Two surface syntaxes map to a single AST.
+- Core AST nodes: Program, Statement, Expression, Function, If, Loop, Call, AgentCall, IO, AsyncBlock
+- Simple BNF-like fragment (informal):
+
+Program     ::= Statement*
+Statement   ::= Print | Let | If | For | While | Def | AgentCall | COBOLBlock
+Print       ::= ("say" | "DISPLAY") Expression
+Let         ::= ("let" IDENTIFIER "=" Expression)
+If          ::= "if" Expression ":" Statement+ ("else" ":" Statement+)?
+AgentCall   ::= "agent" "frontend"|"backend" "[" JSON-LIKE-MSG "]"
+
+---
+
+REPL & CLI (user-facing)
+- CLI commands (example):
+  metascript run hello.ms     # execute file
+  metascript repl             # interactive shell
+  metascript compile hello.ms # compile to bytecode/pack
+  metascript new project-name # scaffold repo
+
+CLI will be implemented in Python (starter blueprint included below).
+
+---
+
+Python-based CLI blueprint (starter implementation)
+- This is a working starter: it implements a tiny interpreter for a subset of Meta Script (print/say, let, basic expressions) and a REPL.
+- It's written for clarity and to bootstrap the project quickly.
+
+# Sample Python CLI (paste into metascript_cli.py to begin)
+
+"""
+Simple Meta Script CLI — starter interpreter (subset)
+Supports: say, let, basic math, comments (#), python-style syntax.
+Not production secure — use sandboxing for real execution.
+"""
+
+import argparse
+import ast
+import sys
+import readline
+
+GLOBAL_ENV = {}
+
+def transform_ms_to_python(source: str) -> str:
+    # very small transpiler for demonstration
+    lines = []
+    for raw in source.splitlines():
+        line = raw.strip()
+        if not line or line.startswith('#'):
+            lines.append(raw)
+            continue
+        # say "text"  -> print("text")
+        if line.startswith('say '):
+            rest = line[4:]
+            lines.append('print(' + rest + ')')
+            continue
+        # let x = 3  -> x = 3
+        if line.startswith('let '):
+            lines.append(line[4:])
+            continue
+        # fallback: treat as Python expression/statement
+        lines.append(line)
+    return '\n'.join(lines)
+
+
+def run_ms_source(source: str, env=None):
+    env = {} if env is None else env
+    py = transform_ms_to_python(source)
+    # NOTE: executing code directly — replace with a secure sandbox for production
+    exec(compile(py, '<metascript>', 'exec'), env)
+    return env
+
+
+def repl():
+    print('Meta Script REPL — type "exit" or Ctrl-D to quit')
+    buffer = []
+    try:
+        while True:
+            line = input('ms> ')
+            if line.strip() in ('exit', 'quit'):
+                break
+            if line.strip() == '':
+                source = '\n'.join(buffer)
+                if source.strip():
+                    run_ms_source(source, GLOBAL_ENV)
+                buffer = []
+                continue
+            buffer.append(line)
+    except (EOFError, KeyboardInterrupt):
+        print('\nbye')
+
+
+def main():
+    parser = argparse.ArgumentParser(prog='metascript')
+    sub = parser.add_subparsers(dest='cmd')
+    runp = sub.add_parser('run')
+    runp.add_argument('file')
+    sub.add_parser('repl')
+    args = parser.parse_args()
+    if args.cmd == 'run':
+        with open(args.file, 'r', encoding='utf-8') as f:
+            src = f.read()
+        run_ms_source(src, GLOBAL_ENV)
+    else:
+        repl()
+
+if __name__ == '__main__':
+    main()
+
+---
+
+Project scaffold & step-by-step implementation (start → finish)
+1) Repo init
+   - git init
+   - create README.md, LICENSE (MIT recommended for starters), .gitignore
+2) Python CLI skeleton
+   - create `metascript/cli.py` (use the starter script above)
+   - add `scripts` entry in setup or pyproject.toml
+3) Parser & AST
+   - decide on single internal AST for both syntaxes
+   - implement a tokenizer, parser and a concrete AST
+   - write unit tests for parsing
+4) Interpreter & runtime
+   - interpreter that walks AST with sandboxed primitives
+   - permission manager (file/network/exec)
+   - built-in modules (math, io, lists, http-lite)
+5) Meta agents
+   - frontend agent: natural language → MS snippets, completions, tutorials
+   - backend agent: safelist checks, execution plan, resource budgets
+   - begin with a local JSON-STDIO agent pair; later add gRPC/HTTP
+6) Tooling
+   - REPL, formatter (msfmt), linter (mslint), package manager (mspkg)
+   - language server (LSP) implementing completions and diagnostics using the frontend agent
+7) Tests & CI
+   - unit tests for parser/interpreter
+   - integration tests for CLI, REPL, agent messages
+   - add GitHub Actions: test, lint, release
+8) Distribution
+   - publish on PyPI (metascript-cli)
+   - optional native builds via PyInstaller for single-file executables
+9) Docs & teaching material
+   - kid-friendly tutorials, playground examples, classroom exercises
+10) Release & community
+   - create example repo, sample curriculum, invite contributors
+
+---
+
+Files & directory suggestion (starter)
+
+metascript/
+  cli.py               # Python CLI entry point (starter)
+  parser.py            # tokenizer + parser
+  ast.py               # AST node classes
+  interpreter.py       # AST walker + runtime
+  agents/
+    frontend_agent.py  # NL -> MS helper
+    backend_agent.py   # execution planner & sandbox
+  stdlib/
+    io.ms
+    math.ms
+tests/
+  test_parser.py
+  test_interpreter.py
+README.md
+pyproject.toml
+LICENSE
+
+---
+
+Examples for children (very small and clear)
+
+Counting to five (Python-style)
+
+for i in range(1, 6):
+    say "Number " + i
+
+Tell a story (COBOL-style)
+
+IDENTIFICATION DIVISION.
+PROGRAM-ID. STORY-MS.
+PROCEDURE DIVISION.
+    DISPLAY "Once upon a time...".
+    DISPLAY "A friendly robot said hello.".
+    STOP RUN.
+
+---
+
+Design notes for meta-agent-first behavior
+- Default model strategy: **local model first, external model as backup.** The frontend agent uses a fast, offline local adapter by default and falls back to an external adapter only when the local adapter can't satisfy the request or explicitly requests fallback. This keeps the language usable offline and deterministic for classrooms while allowing richer external models when needed.
+- Always surface a "why" message from the front-end agent (explain what code does in one sentence a child can read).
+- Provide the ability to write a program by speaking invitations ("make this repeat 3 times").
+- Backend agent validates and suggests the safest runtime (e.g., simulate before running).
+
+Developer API ideas
+- agent.call("frontend", prompt) -> returns code / explanation
+- Display form (spec): agent.call("backend", [action: "allow-network", domain: "example.com"]) -> returns permit/reject
+- Executable form (valid JSON/Python): agent.call("backend", {"action": "allow-network", "domain": "example.com"}) -> returns permit/reject
+
+---
+
+Testing & quality
+- property-based tests for parser
+- golden files for formatted output
+- reproducible examples and test-step scripts for teachers
+
+---
+
+Roadmap (first 6 months)
+1) Stable CLI + parser + small standard library
+2) Front-end meta agent: NL→MS and completions
+3) Backend meta agent: sandbox + execution planner
+4) LSP + VS Code extension
+5) Classroom curriculum + tutorials
+
+---
+
+License & credit
+- Recommend MIT or Apache-2.0 for wide adoption and classroom use.
+
+---
+
+Next steps for you (recommended immediate tasks)
+1) Copy the Python CLI starter into `metascript/cli.py` and run `python metascript/cli.py repl` to try the REPL.
+2) Create 5 toy .ms examples (hello.ms, avg.ms, loop.ms, agent-demo.ms, story.ms).
+3) Implement the parser + AST next and write unit tests.
+
+---
+
+Appendix: Example .ms programs (full)
+
+hello.ms (python-style)
+
+# Hello world
+say "Hello from Meta Script"
+
+agent-example.ms (shows agent call)
+
+# Ask frontend agent to explain their intent
+agent frontend [ "intent": "explain", "code": "say \"Hi\"" ]
+# Executable/example form (use curly braces in real messages or code):
+agent frontend { "intent": "explain", "code": "say \"Hi\"" }
+
+---
+
+End of spec — concise, teachable, and engineered to be extended.
+
+© Meta Script — prototype specification
