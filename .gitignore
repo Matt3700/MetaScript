@@ -1,0 +1,21 @@
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+# virtualenvs
+.venv/
+venv/
+env/
+# pytest/cache
+.pytest_cache/
+# patches and temp files
+patches/
+tmp_out.txt
+metascript_audit.log
+# editor dirs
+.vscode/
+# distribution
+dist/
+build/
+*.egg-info/
